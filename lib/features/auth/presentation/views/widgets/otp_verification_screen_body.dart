@@ -143,7 +143,6 @@ class _OtpVerificationScreenBodyState extends State<OtpVerificationScreenBody> {
                               blurRadius: 3,
                             ),
                           ],
-                        
                         ),
                         onChanged: (value) {
                           if (value.length == 4) {
@@ -156,32 +155,36 @@ class _OtpVerificationScreenBodyState extends State<OtpVerificationScreenBody> {
 
                     // إعادة الإرسال
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Text(
-                          context.tr('Didn\'t receive code?'),
+                          context.tr('Send again?'),
                           style: TextStyle(
                             fontSize: isSmallScreen ? 13 : 14,
                             color: Colors.black54,
                           ),
                         ),
                         const SizedBox(width: 5),
-                        GestureDetector(
-                          onTap: canResend ? sendOtpAgain : null,
-                          child: Text(
-                            canResend
-                                ? context.tr('Resend')
-                                : "${context.tr('Resend in')} $countdown ${context.tr('sec')}",
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 13 : 14,
-                              color:
-                                  canResend
-                                      ? const Color(0xFFC09471)
-                                      : Colors.grey,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        Text(
+                          canResend ? '' : "$countdown ${context.tr('sec')}",
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 13 : 14,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (canResend)
+                          GestureDetector(
+                            onTap: sendOtpAgain,
+                            child: Text(
+                              context.tr('Resend'),
+                              style: TextStyle(
+                                fontSize: isSmallScreen ? 13 : 14,
+                                color: const Color(0xFFC09471),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     SizedBox(

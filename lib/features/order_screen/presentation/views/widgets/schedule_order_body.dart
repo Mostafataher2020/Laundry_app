@@ -10,7 +10,7 @@ import 'package:laundry_app/features/order_screen/presentation/views/widgets/bui
 import 'package:laundry_app/features/order_screen/presentation/views/widgets/build_selectable_box_blue.dart';
 
 class ScheduleOrderBody extends StatefulWidget {
-  final String selectedImage; // الصورة المحددة
+  final String selectedImage;
 
   const ScheduleOrderBody({super.key, required this.selectedImage});
 
@@ -25,32 +25,106 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
   String? selectedDeliveryTime;
   bool isSelected = true;
 
-  @override
-  void initState() {
-    super.initState();
-    resetSelection();
-    Future.delayed(Duration.zero, () {
-      final data =
-          ModalRoute.of(context)!.settings.arguments as Map<String, String>?;
-      if (data != null) {
-        setState(() {
-          selectedPickupDate = data["pickupDate"];
-          selectedPickupTime = data["pickupTime"];
-          selectedDeliveryDate = data["deliveryDate"];
-          selectedDeliveryTime = data["deliveryTime"];
-        });
-      }
-    });
+  String get serviceType {
+    if (widget.selectedImage.contains('clothe')) return 'clothes';
+    if (widget.selectedImage.contains('balnk')) return 'blanket';
+    if (widget.selectedImage.contains('carp')) return 'carpet';
+    return 'clothes';
   }
 
-  void resetSelection() {
-    setState(() {
-      selectedPickupDate = null;
-      selectedPickupTime = null;
-      selectedDeliveryDate = null;
-      selectedDeliveryTime = null;
-      isSelected = true; // إعادة اللون الافتراضي
-    });
+  // Time slots generation methods
+  String _formatTimeSlot(int startHour, int endHour) {
+    String formatHour(int hour) {
+      if (hour == 0) return '12 ${context.tr('AM')}';
+      if (hour < 12) return '$hour ${context.tr('AM')}';
+      if (hour == 12) return '12 ${context.tr('PM')}';
+      return '${hour - 12} ${context.tr('PM')}';
+    }
+
+    return '${formatHour(startHour)} - ${formatHour(endHour)}';
+  }
+
+  List<String> get pickupTimeSlots {
+    List<String> allSlots = [];
+    for (int i = 11; i <= 21; i += 2) {
+      if (i + 2 <= 24) {
+        allSlots.add(_formatTimeSlot(i, i + 2));
+      }
+    }
+    return allSlots;
+  }
+
+  List<String> get deliveryTimeSlots {
+    List<String> allSlots = [];
+    for (int i = 11; i <= 21; i += 2) {
+      if (i + 2 <= 24) {
+        allSlots.add(_formatTimeSlot(i, i + 2));
+      }
+    }
+    return allSlots;
+  }
+
+  List<Map<String, String>> get pickupDates {
+    final now = DateTime.now();
+    final dates = <Map<String, String>>[];
+    
+    for (int i = 0; i < 3; i++) {
+      final date = now.add(Duration(days: i));
+      dates.add({
+        'date': '${date.day}/${date.month}',
+        'day': _getDayName(date.weekday),
+        'fullDay': _getFullDayName(date), // إضافة اسم اليوم الكامل
+      });
+    }
+    
+    return dates;
+  }
+
+  List<Map<String, String>> get deliveryDates {
+    final now = DateTime.now();
+    final dates = <Map<String, String>>[];
+    int daysToAdd = 1;
+    
+    if (serviceType == 'blanket') daysToAdd = 3;
+    if (serviceType == 'carpet') daysToAdd = 6;
+    
+    for (int i = daysToAdd; i < daysToAdd + 3; i++) {
+      final date = now.add(Duration(days: i));
+      dates.add({
+        'date': '${date.day}/${date.month}',
+        'day': _getDayName(date.weekday),
+        'fullDay': _getFullDayName(date), // إضافة اسم اليوم الكامل
+      });
+    }
+    
+    return dates;
+  }
+
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return context.tr('Mon');
+      case 2: return context.tr('Tue');
+      case 3: return context.tr('Wed');
+      case 4: return context.tr('Thu');
+      case 5: return context.tr('Fri');
+      case 6: return context.tr('Sat');
+      case 7: return context.tr('Sun');
+      default: return '';
+    }
+  }
+
+  String _getFullDayName(DateTime date) {
+    // دالة جديدة لإرجاع اسم اليوم كاملاً
+    switch (date.weekday) {
+      case 1: return context.tr('Monday');
+      case 2: return context.tr('Tuesday');
+      case 3: return context.tr('Wednesday');
+      case 4: return context.tr('Thursday');
+      case 5: return context.tr('Friday');
+      case 6: return context.tr('Saturday');
+      case 7: return context.tr('Sunday');
+      default: return '';
+    }
   }
 
   @override
@@ -60,17 +134,17 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
     return BlocConsumer<OrderCubit, OrderState>(
       listener: (context, state) {
         if (state is OrderSuccess) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => PriceListScreen()),
           ).then((_) => orderCubit.resetSelection());
         } else if (state is OrderFailure) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.error)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.error)),
+          );
         }
       },
       builder: (context, state) {
@@ -80,21 +154,7 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // عرض الصورة المحددة
-                // Container(
-                //   width: double.infinity,
-                //   height: 150,
-                //   decoration: BoxDecoration(
-                //     borderRadius: BorderRadius.circular(15),
-                //     image: DecorationImage(
-                //       image: AssetImage(widget.selectedImage),
-                //       fit: BoxFit.cover,
-                //     ),
-                //   ),
-                // ),
-                // SizedBox(height: 20),
-
-                // 📍 تفاصيل الموقع
+                // Your Location Section
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   width: MediaQuery.of(context).size.width * 0.9,
@@ -117,7 +177,7 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
                 ),
                 SizedBox(height: 15),
 
-                // 📍 زر قائمة الأسعار (Price List)
+                // Price List Button
                 Container(
                   width: MediaQuery.of(context).size.width * 0.70,
                   height: 40,
@@ -157,7 +217,7 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
                 ),
                 SizedBox(height: 20),
 
-                // 📍 اختيار موعد الاستلام
+                // Pickup Date & Time Section
                 Text(
                   context.tr('Select Pickup Date & Time'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -165,63 +225,40 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
                 SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: BuildSelectableBox(
-                        title: context.tr('Saturday\n12/12'),
-                        isSelected: orderCubit.selectedPickupDate == "12/12",
-                        onTap: () => orderCubit.setPickupDate("12/12"),
+                  children: pickupDates.map((date) {
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: BuildSelectableBox(
+                          title: '${date['fullDay']}\n${date['date']}', // استخدام fullDay بدلاً من day
+                          isSelected: orderCubit.selectedPickupDate == date['date'],
+                          onTap: () => orderCubit.setPickupDate(date['date']!),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: BuildSelectableBox(
-                        title: context.tr('Sunday\n13/12'),
-                        isSelected: orderCubit.selectedPickupDate == "13/12",
-                        onTap: () => orderCubit.setPickupDate("13/12"),
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: BuildSelectableBox(
-                        title: context.tr('Monday\n14/12'),
-                        isSelected: orderCubit.selectedPickupDate == "14/12",
-                        onTap: () => orderCubit.setPickupDate("14/12"),
-                      ),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
                 SizedBox(height: 10),
 
-                // 📍 تمرير أفقي لاختيار وقت الاستلام
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      BuildSelectableBox(
-                        title: context.tr('11 am : 3 pm'),
-                        isSelected: orderCubit.selectedPickupTime == "11-3",
-                        onTap: () => orderCubit.setPickupTime("11-3"),
-                      ),
-                      SizedBox(width: 10),
-                      BuildSelectableBox(
-                        title: context.tr('4 pm : 7 pm'),
-                        isSelected: orderCubit.selectedPickupTime == "4-7",
-                        onTap: () => orderCubit.setPickupTime("4-7"),
-                      ),
-                      SizedBox(width: 10),
-                      BuildSelectableBox(
-                        title: context.tr('8 pm : 10 pm'),
-                        isSelected: orderCubit.selectedPickupTime == "8-10",
-                        onTap: () => orderCubit.setPickupTime("8-10"),
-                      ),
-                    ],
+                    children: pickupTimeSlots.map((time) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        child: BuildSelectableBox(
+                          title: time,
+                          isSelected: orderCubit.selectedPickupTime == time,
+                          onTap: () => orderCubit.setPickupTime(time),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
                 SizedBox(height: 20),
 
-                // 📍 اختيار موعد التوصيل
+                // Delivery Date & Time Section
                 Text(
                   context.tr('Select Delivery Date & Time'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -229,117 +266,53 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
                 SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: BuildSelectableBoxBlue(
-                        title: context.tr('Sunday\n13/12'),
-                        isSelected: orderCubit.selectedDeliveryDate == "13/12",
-                        onTap: () => orderCubit.setDeliveryDate("13/12"),
+                  children: deliveryDates.map((date) {
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: BuildSelectableBoxBlue(
+                          title: '${date['fullDay']}\n${date['date']}', // استخدام fullDay بدلاً من day
+                          isSelected: orderCubit.selectedDeliveryDate == date['date'],
+                          onTap: () => orderCubit.setDeliveryDate(date['date']!),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: BuildSelectableBoxBlue(
-                        title: context.tr('Monday\n14/12'),
-                        isSelected: orderCubit.selectedDeliveryDate == "14/12",
-                        onTap: () => orderCubit.setDeliveryDate("14/12"),
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: BuildSelectableBoxBlue(
-                        title: "Tuesday\n15/12",
-                        isSelected: orderCubit.selectedDeliveryDate == "15/12",
-                        onTap: () => orderCubit.setDeliveryDate("15/12"),
-                      ),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
                 SizedBox(height: 10),
 
-                // 📍 تمرير أفقي لاختيار وقت التوصيل
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      BuildSelectableBoxBlue(
-                        title: context.tr('11 am : 3 pm'),
-                        isSelected: orderCubit.selectedDeliveryTime == "11-3",
-                        onTap: () => orderCubit.setDeliveryTime("11-3"),
-                      ),
-                      SizedBox(width: 10),
-                      BuildSelectableBoxBlue(
-                        title: context.tr('4 pm : 7 pm'),
-                        isSelected: orderCubit.selectedDeliveryTime == "4-7",
-                        onTap: () => orderCubit.setDeliveryTime("4-7"),
-                      ),
-                      SizedBox(width: 10),
-                      BuildSelectableBoxBlue(
-                        title: context.tr('8 pm : 10 pm'),
-                        isSelected: orderCubit.selectedDeliveryTime == "8-10",
-                        onTap: () => orderCubit.setDeliveryTime("8-10"),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 20),
-
-                // 📍 تفاصيل الطلب
-                if (selectedPickupDate != null && selectedPickupTime != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('Order details'),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    children: deliveryTimeSlots.map((time) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        child: BuildSelectableBoxBlue(
+                          title: time,
+                          isSelected: orderCubit.selectedDeliveryTime == time,
+                          onTap: () => orderCubit.setDeliveryTime(time),
                         ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "${context.tr('Picked up date')}: $selectedPickupDate",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "${context.tr('Time')}: $selectedPickupTime",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "${context.tr('Delivered date')}: $selectedDeliveryDate",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "${context.tr('Time')}: $selectedDeliveryTime",
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        context.tr('You can cancel before the captain comes'),
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
+                ),
+                SizedBox(height: 40),
+
+                // Order Details Section
+                Column(
+                  children: [
+                    Text(context.tr('Are you sure you want to cancel this order?'),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,color: Colors.black),),
+                        SizedBox(height: 25),
+                    Text(context.tr('By clicking proceed, you agree to Terms of Use'),style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,color: Colors.black),),
+                  ]
+                ),
                 SizedBox(height: 20),
 
-                // 📍 تأكيد الطلب
-                Text(
-                  context.tr('Are you sure to place order?'),
-                  style: TextStyle(fontSize: 16),
-                ),
-                Text(
-                  context.tr('By clicking proceed, you agree to Terms of Use'),
-                  style: TextStyle(fontSize: 12),
-                ),
-                SizedBox(height: 10),
-
-                // 📍 زر تنفيذ الطلب
+                // Proceed Button
                 if (state is OrderLoading)
-                  CircularProgressIndicator() // عرض مؤشر التحميل
+                  CircularProgressIndicator()
                 else
                   SizedBox(
                     width: MediaQuery.of(context).size.width * 0.8,
@@ -360,11 +333,12 @@ class _ScheduleOrderBodyState extends State<ScheduleOrderBody> {
                           );
                         } else {
                           orderCubit.submitOrder(
-                            selectedImage:
-                                widget.selectedImage, // تمرير الصورة المحددة
+                            selectedImage: widget.selectedImage,
                           );
                         }
-                      }, color: Color(0xFFC09471), width: MediaQuery.of(context).size.width * 0.8,
+                      },
+                      color: Color(0xFFC09471),
+                      width: MediaQuery.of(context).size.width * 0.8,
                     ),
                   ),
                 TextButton(
